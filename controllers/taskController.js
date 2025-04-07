@@ -49,7 +49,7 @@ const createTask = async (req, res) => {
 
     res.status(201).json({ success: true, task, day });
   } catch (error) {
-    console.error("Error creating task:", error.message);
+    console.error("Error creating task:", error.meschchrsage);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -57,8 +57,8 @@ const createTask = async (req, res) => {
 // [PUT] /api/tasks/update
 const updateTask = async (req, res) => {
   try {
-    const { taskId } = req.query; // Accept taskId as a query parameter
-    const updateData = req.body;
+    const { taskId, updateData } = req.body; // Accept taskId as a query parameter
+    
 
     if (!taskId) {
       return res.status(400).json({ success: false, message: "taskId is required" });

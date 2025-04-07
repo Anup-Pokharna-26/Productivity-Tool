@@ -28,8 +28,7 @@ const getDay = async (req, res) => {
 // [PUT] /api/day
 const updateDayStatus = async (req, res) => {
   try {
-    const { date, userId } = req.query;
-    const { statusOfDay } = req.body;
+    const { date, userId, statusOfDay } = req.body; // Accept date, userId, and statusOfDay in the request body
 
     if (!date || !userId || !statusOfDay) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
@@ -150,3 +149,4 @@ module.exports = {
   getLineChartProductivityStatus,
   getPieChartProductivityStatus,
 };
+
