@@ -1,71 +1,81 @@
 const aiModel = require('../models/schema/ai.model');
 const generateAiResponse = require('../services/gemini');
+const { SKILL_LEVEL_MAP } = require('../constants');
 
 const aiController = {
-  createAi: async (req, res) => {
+  generateNewRoadmap: async (req, res) => {
     try {
       const {
         title,
-        userId,
-        createdBy,
-        updatedBy,
-        skillLevel,
         monthsAllocated,
         hoursPerDay,
         startDate,
-        skill
+        skillLevel
       } = req.body;
-  
-      // Get AI raw response
-      const aiRaw = await generateAiResponse({
-        skill,
-        months: monthsAllocated,
-        hours: hoursPerDay,
-        startDate
-      });
-  
-      console.log("🔍 Raw AI Response:\n", aiRaw);
-  
-      // Try to extract a valid JSON object with balanced brackets
-      const jsonStart = aiRaw.indexOf('{');
-      const jsonEnd = aiRaw.lastIndexOf('}');
-      const jsonString = aiRaw.slice(jsonStart, jsonEnd + 1);
-  
-      // Attempt to fix common issues before parsing
-      const cleanedJson = jsonString
-        .replace(/,\s*}/g, '}') // Remove trailing commas before object ends
-        .replace(/,\s*]/g, ']'); // Remove trailing commas before array ends
-  
-      let parsedJson;
-      try {
-        parsedJson = JSON.parse(cleanedJson);
-      } catch (parseError) {
-        console.error("❌ Still invalid JSON:", parseError.message);
-        return res.status(500).json({
-          message: 'AI response is not valid JSON after cleanup.',
-          error: parseError.message,
-          raw: cleanedJson
+
+      // Input validation
+      if (!title || !monthsAllocated || !hoursPerDay || !startDate || !skillLevel) {
+        return res.status(400).json({
+          message: 'Missing required fields',
+          required: ['title', 'monthsAllocated', 'hoursPerDay', 'startDate', 'skillLevel']
         });
       }
-  
-      const newAi = new aiModel({
-        title,
-        userId,
-        createdBy,
-        updatedBy,
-        skillLevel,
-        monthsAllocated,
-        hoursPerDay,
-        aiResponse: parsedJson
+
+      // Validate numeric fields
+      if (isNaN(monthsAllocated) || isNaN(hoursPerDay)) {
+        return res.status(400).json({
+          message: 'Invalid numeric values',
+          details: {
+            monthsAllocated: 'Must be a number',
+            hoursPerDay: 'Must be a number'
+          }
+        });
+      }
+
+      if (skillLevel> SKILL_LEVEL_MAP.length) {
+        return res.status(400).json({
+          message: 'Invalid skill level',
+          details: {
+            skillLevel: 'Must be a number'
+          }
+        });
+      }
+
+      // Get AI raw response
+      const aiResponse = await generateAiResponse({
+        skill: title,
+        months: monthsAllocated,
+        hours: hoursPerDay,
+        startDate,
+        skillLevel: SKILL_LEVEL_MAP[skillLevel]
       });
-  
-      await newAi.save();
-      res.status(201).json({ message: 'AI created successfully', data: newAi });
+
+      console.log("🔍 Raw AI Response:\n", aiResponse);
+
+      // Return the parsed AI response directly to the UI
+      res.status(200).json({
+        message: 'AI response generated successfully',
+        result: aiResponse
+      });
     } catch (err) {
-      console.error('Error creating AI:', err);
-      res.status(500).json({ message: 'Error creating AI', error: err.message });
+      console.error('Error generating AI response:', err);
+      res.status(500).json({ 
+        message: 'Error generating AI response', 
+        error: err.message 
+      });
     }
   },
+
+  confirmRoadmap: async (req, res) => {
+    try {
+      const { roadmapId, userId } = req.body;
+
+    } catch (err) {
+      console.error('Error confirming roadmap:', err);
+      res.status(500).json({ message: 'Error confirming roadmap', error: err.message });
+    }
+  },
+  
   
   
   getAi: async (req, res) => {
