@@ -67,7 +67,7 @@ const aiController = {
     }
   },
   
-
+  
   getAi: async (req, res) => {
     try {
       const { id } = req.params;
