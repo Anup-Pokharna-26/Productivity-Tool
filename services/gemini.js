@@ -13,7 +13,7 @@ async function generateAiResponse({ skill, months, hours, startDate, skillLevel 
     const response = await result.response;
     
     // Get the text content from the response structure
-    const textContent = response.candidates[0].content.parts[0].text;
+    const textContent = response.text() || "";
     
     // Remove the markdown code block markers if present
     const cleanJson = textContent.replace(/```json\n|\n```/g, '');
