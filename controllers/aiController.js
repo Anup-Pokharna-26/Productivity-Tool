@@ -146,6 +146,8 @@ const aiController = {
       // Save to database
       const savedAiModel = await newAiModel.save();
 
+      //TODO:  Loop over plan and save each day of this user in our database
+
       res.status(201).json({
         message: 'success',
         result: savedAiModel
