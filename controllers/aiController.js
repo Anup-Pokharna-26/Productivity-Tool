@@ -1,89 +1,215 @@
 const aiModel = require('../models/schema/ai.model');
 const generateAiResponse = require('../services/gemini');
+const { SKILL_LEVEL_MAP } = require('../constants');
 
 const aiController = {
-  createAi: async (req, res) => {
+  /**
+   * Generates a new learning roadmap using AI
+   * @param {Object} req - Express request object
+   * @param {Object} req.body - Request body containing:
+   *   - title: string - The skill to learn
+   *   - monthsAllocated: number - Number of months allocated
+   *   - hoursPerDay: number - Hours per day available
+   *   - startDate: string - Start date for the roadmap
+   *   - skillLevel: number - Current skill level (0-4)
+   * @param {Object} res - Express response object
+   */
+  generateNewRoadmap: async (req, res) => {
     try {
       const {
         title,
-        userId,
-        createdBy,
-        updatedBy,
-        skillLevel,
         monthsAllocated,
         hoursPerDay,
         startDate,
-        skill
+        skillLevel
       } = req.body;
-  
-      // Get AI raw response
-      const aiRaw = await generateAiResponse({
-        skill,
-        months: monthsAllocated,
-        hours: hoursPerDay,
-        startDate
-      });
-  
-      console.log("🔍 Raw AI Response:\n", aiRaw);
-  
-      // Try to extract a valid JSON object with balanced brackets
-      const jsonStart = aiRaw.indexOf('{');
-      const jsonEnd = aiRaw.lastIndexOf('}');
-      const jsonString = aiRaw.slice(jsonStart, jsonEnd + 1);
-  
-      // Attempt to fix common issues before parsing
-      const cleanedJson = jsonString
-        .replace(/,\s*}/g, '}') // Remove trailing commas before object ends
-        .replace(/,\s*]/g, ']'); // Remove trailing commas before array ends
-  
-      let parsedJson;
-      try {
-        parsedJson = JSON.parse(cleanedJson);
-      } catch (parseError) {
-        console.error("❌ Still invalid JSON:", parseError.message);
-        return res.status(500).json({
-          message: 'AI response is not valid JSON after cleanup.',
-          error: parseError.message,
-          raw: cleanedJson
+
+      // Input validation
+      if (!title || !monthsAllocated || !hoursPerDay || !startDate || !skillLevel) {
+        return res.status(400).json({
+          message: 'Missing required fields',
+          required: ['title', 'monthsAllocated', 'hoursPerDay', 'startDate', 'skillLevel']
         });
       }
-  
-      const newAi = new aiModel({
-        title,
-        userId,
-        createdBy,
-        updatedBy,
-        skillLevel,
-        monthsAllocated,
-        hoursPerDay,
-        aiResponse: parsedJson
-      });
-  
-      await newAi.save();
-      res.status(201).json({ message: 'AI created successfully', data: newAi });
-    } catch (err) {
-      console.error('Error creating AI:', err);
-      res.status(500).json({ message: 'Error creating AI', error: err.message });
-    }
-  },
-  
-  
-  getAi: async (req, res) => {
-    try {
-      const { id } = req.params;
-      const ai = await aiModel.find({ userId: id });
 
-      if (!ai || ai.length === 0) {
-        return res.status(404).json({ message: 'AI not found' });
+      // Validate numeric fields
+      if (isNaN(monthsAllocated) || isNaN(hoursPerDay)) {
+        return res.status(400).json({
+          message: 'Invalid numeric values',
+          details: {
+            monthsAllocated: 'Must be a number',
+            hoursPerDay: 'Must be a number'
+          }
+        });
       }
 
-      res.status(200).json(ai);
+      if (skillLevel > SKILL_LEVEL_MAP.length) {
+        return res.status(400).json({
+          message: 'Invalid skill level',
+          details: {
+            skillLevel: 'Must be a number'
+          }
+        });
+      }
+
+      // Get AI raw response
+      const aiResponse = await generateAiResponse({
+        skill: title,
+        months: monthsAllocated,
+        hours: hoursPerDay,
+        startDate,
+        skillLevel: SKILL_LEVEL_MAP[skillLevel]
+      });
+
+      console.log("🔍 Raw AI Response:\n", aiResponse);
+
+      // Return the parsed AI response directly to the UI
+      res.status(200).json({
+        message: 'AI response generated successfully',
+        result: aiResponse
+      });
     } catch (err) {
-      console.error('Error fetching AI:', err);
-      res.status(500).json({ message: 'Error getting AI', error: err.message });
+      console.error('Error generating AI response:', err);
+      res.status(500).json({ 
+        message: 'Error generating AI response', 
+        error: err.message 
+      });
     }
   },
 
+  /**
+   * Confirms and saves a roadmap to the database
+   * @param {Object} req - Express request object
+   * @param {Object} req.body - Request body containing:
+   *   - userId: string - ID of the user
+   *   - data: Object - Roadmap data containing:
+   *     - title: string - The skill to learn
+   *     - skillLevel: number - Current skill level
+   *     - monthsAllocated: number - Number of months allocated
+   *     - hoursPerDay: number - Hours per day available
+   *     - aiResponse: Object - AI generated roadmap data
+   * @param {Object} res - Express response object
+   */
+  confirmRoadmap: async (req, res) => {
+    try {
+      const { userId, data } = req.body;
+
+      // Validate required fields
+      if (!userId || !data) {
+        return res.status(400).json({
+          message: 'Missing required fields',
+          required: ['userId', 'data']
+        });
+      }
+
+      // Validate data structure
+      const requiredFields = ['title', 'skillLevel', 'monthsAllocated', 'hoursPerDay', 'aiResponse'];
+      const missingFields = requiredFields.filter(field => !data[field]);
+      
+      if (missingFields.length > 0) {
+        return res.status(400).json({
+          message: 'Missing required fields in data',
+          missing: missingFields
+        });
+      }
+
+      // Validate numeric fields
+      if (isNaN(data.skillLevel) || isNaN(data.monthsAllocated) || isNaN(data.hoursPerDay)) {
+        return res.status(400).json({
+          message: 'Invalid numeric values',
+          details: {
+            skillLevel: 'Must be a number',
+            monthsAllocated: 'Must be a number',
+            hoursPerDay: 'Must be a number'
+          }
+        });
+      }
+
+      // Create new AI model instance
+      const newAiModel = new aiModel({
+        title: data.title,
+        userId: userId,
+        createdBy: userId, // Using userId as createdBy
+        updatedBy: userId, // Using userId as updatedBy
+        skillLevel: data.skillLevel,
+        monthsAllocated: data.monthsAllocated,
+        hoursPerDay: data.hoursPerDay,
+        aiResponse: data.aiResponse
+      });
+
+      // Save to database
+      const savedAiModel = await newAiModel.save();
+
+      res.status(201).json({
+        message: 'Roadmap confirmed and saved successfully',
+        result: savedAiModel
+      });
+    } catch (err) {
+      console.error('Error confirming roadmap:', err);
+      res.status(500).json({ 
+        message: 'Error confirming roadmap', 
+        error: err.message 
+      });
+    }
+  },
+
+  /**
+   * Retrieves roadmap(s) for a user
+   * @param {Object} req - Express request object
+   * @param {Object} req.params - URL parameters:
+   *   - userId: string - ID of the user (required)
+   *   - roadmapId: string - ID of specific roadmap (optional)
+   * @param {Object} res - Express response object
+   * 
+   * Usage:
+   * - GET /api/ai/:userId - Returns all roadmaps for the user
+   * - GET /api/ai/:userId/:roadmapId - Returns specific roadmap for the user
+   */
+  getAi: async (req, res) => {
+    try {
+      const { userId, roadmapId } = req.params;
+
+      if (!userId) {
+        return res.status(400).json({ 
+          message: 'userId is required',
+          required: ['userId']
+        });
+      }
+
+      // If roadmapId is provided, get specific roadmap, otherwise get all roadmaps for user
+      const query = roadmapId 
+        ? { userId, _id: roadmapId }
+        : { userId };
+
+      const ai = await aiModel.find(query);
+
+      if (!ai || ai.length === 0) {
+        return res.status(404).json({ 
+          message: roadmapId ? 'Roadmap not found' : 'No roadmaps found for this user'
+        });
+      }
+
+      res.status(200).json({
+        message: 'Roadmap(s) retrieved successfully',
+        result: ai
+      });
+    } catch (err) {
+      console.error('Error fetching AI:', err);
+      res.status(500).json({ 
+        message: 'Error getting AI', 
+        error: err.message 
+      });
+    }
+  },
+
+  /**
+   * Updates an existing roadmap
+   * @param {Object} req - Express request object
+   * @param {Object} req.params - URL parameters:
+   *   - id: string - ID of the roadmap to update
+   * @param {Object} req.body - Request body containing update fields
+   * @param {Object} res - Express response object
+   */
   updateAi: async (req, res) => {
     try {
       const { id } = req.params;
