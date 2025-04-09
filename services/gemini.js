@@ -4,11 +4,26 @@ require("dotenv").config();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 async function generateAiResponse({ skill, months, hours, startDate, skillLevel }) {
-  const prompt = `I want to learn ${skillLevel} ${skill} in ${months} months. I can dedicate ${hours} hours per day. Starting from ${startDate}, is this goal achievable? Respond with: 
+  const prompt = `I want to learn ${skillLevel} ${skill} in ${months} months. I can dedicate ${hours} hours per day. Starting from ${startDate}, is this goal achievable? Provide a precise plan, with deterministic tasks.
+  Tasks should be based on no of hours provided per day. 
+  Respond with: 
     - A key "isFeasible" with a value of true or false. 
     - A "reason" explaining why it is or isn't feasible. 
     - If not feasible, provide "estimatedMonths" – the minimum number of months required. 
     - If feasible, generate a daily learning plan (excluding weekends) starting from ${startDate} under key "plan", showing what tasks I need to complete each day. 
+    - Response format should be a JSON object like : 
+    {
+      "isFeasible": boolean, 
+      "reason": string,
+      "title": string, // This will be title
+      "plan": [
+        {
+          "date": string,
+          "topic": string, // This will be topic
+          "tasks": string[] // These are subtopics under the topic
+        }
+      ]
+    }
     `;
 
   const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
