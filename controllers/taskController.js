@@ -6,18 +6,36 @@ const getTasks = async (req, res) => {
   try {
     const { date, userId } = req.query;
 
-    // Ensure both userId and date are provided
     if (!userId || !date) {
       return res.status(400).json({ success: false, message: "userId and date are required" });
     }
 
-    // Strip time from the date
     const strippedDate = new Date(new Date(date).toISOString().split("T")[0]);
-
-    // Query tasks based on userId and taskDate
     const tasks = await Task.find({ userId, taskDate: strippedDate });
 
-    res.status(200).json({ success: true, result: tasks });
+    const completedStatuses = ["done"];
+    const pendingStatuses = ["pending", "notDone", "toDo"];
+    const inProgressStatuses = ["inProgress"];
+
+    let statusOfDay = 0;
+
+    if (tasks.length === 0) {
+      statusOfDay = 0;
+    } else if (tasks.every(task => completedStatuses.includes(task.status))) {
+      statusOfDay = 2;
+    } else if (tasks.every(task => pendingStatuses.includes(task.status))) {
+      statusOfDay = 3;
+    } else {
+      statusOfDay = 1;
+    }
+
+    res.status(200).json({
+      success: true,
+      result: {
+        tasks,
+        statusOfDay,
+      },
+    });
   } catch (error) {
     console.error("Error fetching tasks:", error.message);
     res.status(500).json({ success: false, error: error.message });
@@ -33,23 +51,19 @@ const createTask = async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
-    // Strip time from the taskDate
     const strippedTaskDate = new Date(new Date(taskDate).toISOString().split("T")[0]);
-
-    // Create the task
     const task = new Task({ userId, title, description, status, category, taskDate: strippedTaskDate });
     await task.save();
 
-    // Add the task to the corresponding day
     const day = await Day.findOneAndUpdate(
       { date: strippedTaskDate, userId },
-      { $addToSet: { tasks: task._id } }, // Add the task ID to the tasks array
-      { new: true, upsert: true } // Create the day if it doesn't exist
+      { $addToSet: { tasks: task._id } },
+      { new: true, upsert: true }
     );
 
     res.status(201).json({ success: true, task, day });
   } catch (error) {
-    console.error("Error creating task:", error.meschchrsage);
+    console.error("Error creating task:", error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 };
@@ -57,14 +71,12 @@ const createTask = async (req, res) => {
 // [PUT] /api/tasks/update
 const updateTask = async (req, res) => {
   try {
-    const { taskId, updateData } = req.body; // Accept taskId as a query parameter
-    
+    const { taskId, updateData } = req.body;
 
     if (!taskId) {
       return res.status(400).json({ success: false, message: "taskId is required" });
     }
 
-    // Find and update the task by its unique ID
     const updatedTask = await Task.findByIdAndUpdate(taskId, { $set: updateData }, { new: true });
 
     if (!updatedTask) {
@@ -78,15 +90,15 @@ const updateTask = async (req, res) => {
   }
 };
 
+// [DELETE] /api/tasks/delete?taskId=...
 const deleteTask = async (req, res) => {
   try {
-    const { taskId } = req.query; // Accept taskId as a query parameter
+    const { taskId } = req.query;
 
     if (!taskId) {
       return res.status(400).json({ success: false, message: "taskId is required" });
     }
 
-    // Find and delete the task by its unique ID
     const deletedTask = await Task.findByIdAndDelete(taskId);
 
     if (!deletedTask) {
@@ -99,6 +111,5 @@ const deleteTask = async (req, res) => {
     res.status(500).json({ success: false, error: error.message });
   }
 };
-
 
 module.exports = { getTasks, createTask, updateTask, deleteTask };
