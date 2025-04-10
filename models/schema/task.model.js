@@ -23,9 +23,21 @@ const taskSchema = new mongoose.Schema(
     category: {
       type: String,
       trim: true,
+      trim: true, 
+    },
+    subCategory: {
+      type: String,
+      trim: true, // For storing AI plan title or null for user-added tasks
+      default: null,
+
     },
     taskDate: {
       type: Date,
+      required: true,
+    },
+
+    createdBy: {
+      type: String,
       required: true,
     },
   },

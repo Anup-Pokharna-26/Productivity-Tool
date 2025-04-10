@@ -4,9 +4,7 @@ const generateAiResponse = require('../services/gemini');
 const { SKILL_LEVEL_MAP } = require('../constants');
 
 const aiController = {
-
   // 🚀 1. Generate AI Roadmap
-
   /**
    * Generates a new learning roadmap using AI
    * @param {Object} req - Express request object
@@ -29,15 +27,15 @@ const aiController = {
         skillLevel
       } = req.body;
 
-
       // Input validation
       if (!title || !monthsAllocated || !hoursPerDay || !startDate || !skillLevel) {
-
         return res.status(400).json({
           message: 'Missing required fields',
           required: ['title', 'monthsAllocated', 'hoursPerDay', 'startDate', 'skillLevel']
         });
       }
+
+      // Validate numeric fields
 
       if (isNaN(monthsAllocated) || isNaN(hoursPerDay)) {
         return res.status(400).json({
@@ -49,7 +47,6 @@ const aiController = {
         });
       }
 
-
       if (skillLevel > SKILL_LEVEL_MAP.length) {
         return res.status(400).json({
           message: 'Invalid skill level',
@@ -58,6 +55,9 @@ const aiController = {
           }
         });
       }
+
+
+      // Get AI raw response
 
       const aiResponse = await generateAiResponse({
         skill: title,
@@ -68,23 +68,28 @@ const aiController = {
       });
 
       console.log("🔍 Raw AI Response:\n", aiResponse);
-      
+
+
+
       // Add requred fields in the response 
       aiResponse.monthsAllocated = monthsAllocated;
       aiResponse.hoursPerDay = hoursPerDay;
       aiResponse.skillLevel = skillLevel;
 
       // Return the parsed AI response directly to the UI
+
       res.status(200).json({
         message: 'AI response generated successfully',
         result: aiResponse
       });
+
     } catch (err) {
       console.error('Error generating AI response:', err);
       res.status(500).json({
         message: 'Error generating AI response',
         error: err.message
       });
+
     }
   },
 
@@ -193,6 +198,15 @@ const aiController = {
       });
     }
   },
+
+  /**
+   * Updates an existing roadmap
+   * @param {Object} req - Express request object
+   * @param {Object} req.params - URL parameters:
+   *   - id: string - ID of the roadmap to update
+   * @param {Object} req.body - Request body containing update fields
+   * @param {Object} res - Express response object
+   */
 
   updateAi: async (req, res) => {
     try {
