@@ -28,7 +28,7 @@ const aiController = {
         !monthsAllocated ||
         !hoursPerDay ||
         !startDate ||
-        !skillLevel
+        skillLevel == null
       ) {
         return res.status(400).json({
           message: "Missing required fields",
