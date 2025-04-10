@@ -128,14 +128,28 @@ const getPieChartProductivityStatus = async (req, res) => {
       statusOfDay,
     });
 
-    // Map the data to the desired format
-    const result = data.map((day) => ({
-      date: day.date.toISOString().split("T")[0], // Format date as YYYY-MM-DD
-      day: new Date(day.date).toLocaleString("en-US", { weekday: "long" }), // Get the day of the week
-      status: day.statusOfDay.charAt(0).toUpperCase() + day.statusOfDay.slice(1), // Capitalize the status
-    }));
+    // Group data by day of the week and count occurrences
+    const dayCounts = data.reduce((acc, day) => {
+      const weekday = new Date(day.date).toLocaleString("en-US", { weekday: "short" }).toLowerCase();
+      acc[weekday] = acc[weekday] || { count: 0 };
+      acc[weekday].count += 1;
+      return acc;
+    }, {});
 
-    res.status(200).json({ success: true, result });
+    // Ensure all days of the week are present in the response
+    const allDays = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
+    const result = allDays.reduce((acc, day) => {
+      acc[day] = dayCounts[day] || { count: 0 };
+      return acc;
+    }, {});
+
+    res.status(200).json({
+      success: true,
+      result: {
+        status: statusOfDay,
+        data: result,
+      },
+    });
   } catch (error) {
     console.error("Error fetching pie chart data:", error.message);
     res.status(500).json({ success: false, error: error.message });

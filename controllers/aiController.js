@@ -58,7 +58,7 @@ const aiController = {
 
 
       // Get AI raw response
-
+      
       const aiResponse = await generateAiResponse({
         skill: title,
         months: monthsAllocated,
@@ -137,6 +137,7 @@ const aiController = {
 
         if (Array.isArray(tasks)) {
           for (const taskTitle of tasks) {
+            console.log(`Saving task: ${taskTitle} for date: ${date}`);
             const task = new Task({
               userId,
               title: taskTitle,
@@ -146,7 +147,13 @@ const aiController = {
               subCategory: data.title,
               createdBy: userId
             });
-            await task.save();
+            try {
+              await task.save();
+            console.log(`Task saved: ${task}`);
+            } catch (error) {
+              console.error(`Error saving task: ${taskTitle} for date: ${date}`, error);
+            }
+            
           }
         } else {
           console.warn(`❗ Skipped invalid task list for date: ${date}`, tasks);
