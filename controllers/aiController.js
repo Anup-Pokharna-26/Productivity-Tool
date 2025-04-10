@@ -62,12 +62,18 @@ const aiController = {
       });
 
       console.log("🔍 Raw AI Response:\n", aiResponse);
+      
+      // Add requred fields in the response 
+      aiResponse.monthsAllocated = monthsAllocated;
+      aiResponse.hoursPerDay = hoursPerDay;
+      aiResponse.skillLevel = skillLevel;
 
       // Return the parsed AI response directly to the UI
       res.status(200).json({
         message: 'AI response generated successfully',
         result: aiResponse
       });
+
     } catch (err) {
       console.error('Error generating AI response:', err);
       res.status(500).json({ 
@@ -103,7 +109,7 @@ const aiController = {
       }
 
       // Validate data structure
-      const requiredFields = ['title', 'skillLevel', 'monthsAllocated', 'hoursPerDay', 'aiResponse'];
+      const requiredFields = ['title', 'skillLevel', 'monthsAllocated', 'hoursPerDay', 'plan'];
       const missingFields = requiredFields.filter(field => !data[field]);
       
       if (missingFields.length > 0) {
@@ -134,14 +140,16 @@ const aiController = {
         skillLevel: data.skillLevel,
         monthsAllocated: data.monthsAllocated,
         hoursPerDay: data.hoursPerDay,
-        aiResponse: data.aiResponse
+        aiResponse: data.plan
       });
 
       // Save to database
       const savedAiModel = await newAiModel.save();
 
+      //TODO:  Loop over plan and save each day of this user in our database
+
       res.status(201).json({
-        message: 'Roadmap confirmed and saved successfully',
+        message: 'success',
         result: savedAiModel
       });
     } catch (err) {
@@ -252,14 +260,16 @@ const aiController = {
 
   deleteAi: async (req, res) => {
     try {
-      const { id } = req.params;
-      const deleted = await aiModel.deleteMany({ userId: id });
+      const { userId, roadmapId } = req.params;
+      console.log(`Deleting plan ${roadmapId} of user : ${userId}`)
+      const deleted = await aiModel.deleteOne({ userId: userId, _id: roadmapId });
 
       if (!deleted || deleted.deletedCount === 0) {
-        return res.status(404).json({ message: 'AI not found' });
+        return res.status(400).json({ message: 'AI plan not found or you are not authorized to delete this plan.' });
       }
 
-      res.status(200).json({ message: 'AI deleted successfully' });
+      console.log("Delete AI plan")
+      res.status(200).json({ message: 'AI plan deleted successfully' });
     } catch (err) {
       console.error('Error deleting AI:', err);
       res.status(500).json({ message: 'Error deleting AI', error: err.message });
