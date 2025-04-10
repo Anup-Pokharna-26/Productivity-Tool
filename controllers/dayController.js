@@ -76,6 +76,20 @@ const getStreak = async (req, res) => {
 };
 
 // [GET] /api/productivity/status/line-chart
+// Helper function to generate an array of dates between startDate and endDate
+const generateDateRange = (startDate, endDate) => {
+  const dates = [];
+  let currentDate = new Date(startDate);
+
+  while (currentDate <= endDate) {
+    dates.push(new Date(currentDate));
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+
+  return dates;
+};
+
+// [GET] /api/productivity/status/line-chart
 const getLineChartProductivityStatus = async (req, res) => {
   try {
     const { startDate, endDate, userId } = req.query;
@@ -93,13 +107,22 @@ const getLineChartProductivityStatus = async (req, res) => {
       date: { $gte: strippedStartDate, $lte: strippedEndDate },
     });
 
-    const result = data.map((day) => ({
-      date: day.date.toISOString().split("T")[0], // Format date as YYYY-MM-DD
-      day: new Date(day.date).toLocaleString("en-US", { weekday: "long" }), // Get the day of the week
-      status: day.statusOfDay
-        ? day.statusOfDay.charAt(0).toUpperCase() + day.statusOfDay.slice(1) // Capitalize the status
-        : "Unknown", // Default value if statusOfDay is undefined
-    }));
+    // Generate the date range
+    const dateRange = generateDateRange(strippedStartDate, strippedEndDate);
+
+    // Map the data to the required format and fill missing dates
+    const result = dateRange.map((date) => {
+      const formattedDate = date.toISOString().split("T")[0];
+      const dayData = data.find((day) => day.date.toISOString().split("T")[0] === formattedDate);
+
+      return {
+        date: formattedDate,
+        day: date.toLocaleString("en-US", { weekday: "long" }),
+        status: dayData
+          ? dayData.statusOfDay.charAt(0).toUpperCase() + dayData.statusOfDay.slice(1)
+          : "Unknown",
+      };
+    });
 
     res.status(200).json({ success: true, result });
   } catch (error) {
@@ -128,6 +151,9 @@ const getPieChartProductivityStatus = async (req, res) => {
       statusOfDay,
     });
 
+    // Generate the date range
+    const dateRange = generateDateRange(strippedStartDate, strippedEndDate);
+
     // Group data by day of the week and count occurrences
     const dayCounts = data.reduce((acc, day) => {
       const weekday = new Date(day.date).toLocaleString("en-US", { weekday: "short" }).toLowerCase();
@@ -143,11 +169,23 @@ const getPieChartProductivityStatus = async (req, res) => {
       return acc;
     }, {});
 
+    // Fill missing dates in the date range with count 0
+    const filledData = dateRange.map((date) => {
+      const formattedDate = date.toISOString().split("T")[0];
+      const weekday = date.toLocaleString("en-US", { weekday: "short" }).toLowerCase();
+
+      return {
+        date: formattedDate,
+        day: weekday,
+        count: result[weekday]?.count || 0,
+      };
+    });
+
     res.status(200).json({
       success: true,
       result: {
         status: statusOfDay,
-        data: result,
+        data: filledData,
       },
     });
   } catch (error) {
