@@ -1,5 +1,6 @@
 const aiModel = require("../models/schema/ai.model");
 const Task = require("../models/schema/task.model");
+const Day = require("../models/schema/day.model"); // Import the Day model
 const generateAiResponse = require("../services/gemini");
 const { SKILL_LEVEL_MAP } = require("../constants");
 
@@ -125,6 +126,15 @@ const aiController = {
         });
       }
 
+      // Validate that aiResponse.plan is an array
+      const roadmap = data.aiResponse?.plan;
+      if (!Array.isArray(roadmap)) {
+        return res.status(400).json({
+          message: "Invalid AI response format",
+          details: "The 'plan' field inside 'aiResponse' must be an array",
+        });
+      }
+
       // Save AI Roadmap
       const newAiModel = new aiModel({
         title: data.title,
@@ -139,30 +149,45 @@ const aiController = {
 
       const savedAiModel = await newAiModel.save();
 
-      // 🧠 Save AI Tasks from aiResponse
-      const roadmap = data.aiResponse || [];
-
+      // 🧠 Save AI Tasks from aiResponse and update Day model
       for (const day of roadmap) {
         const { date, topic, tasks } = day;
 
+        if (!Array.isArray(tasks)) {
+          console.error(`Invalid tasks format for date: ${date}`);
+          continue; // Skip invalid entries
+        }
+
+        const taskIds = [];
         for (const task of tasks) {
           console.log(`Saving task: ${task} for date: ${date}`);
-            const newTask = new Task({
-              userId,
-              title: task,
-              description: "",
-              taskDate: new Date(date),
-              category: "Ai",
-              subCategory: data.title,
-              createdBy: userId
-            });
-            try {
-              await newTask.save();
-              console.log(`Task saved: ${newTask}`);
-            } catch (error) {
-              console.error(`Error saving task: ${task} for date: ${date}`, error);
-            }
+          const newTask = new Task({
+            userId,
+            title: task,
+            description: topic,
+            taskDate: date, // Use date directly
+            category: "Ai",
+            subCategory: data.title,
+            createdBy: userId,
+          });
+          try {
+            const savedTask = await newTask.save();
+            taskIds.push(savedTask._id); // Collect task IDs for the Day model
+            console.log(`Task saved: ${savedTask}`);
+          } catch (error) {
+            console.error(`Error saving task: ${task} for date: ${date}`, error);
+          }
         }
+
+        // Update or create the corresponding Day document
+        await Day.findOneAndUpdate(
+          { date, userId }, // Use date directly
+          {
+            $addToSet: { tasks: { $each: taskIds } }, // Add all task IDs to the tasks array
+            $setOnInsert: { statusOfDay: "not productive" }, // Default status if the day is newly created
+          },
+          { new: true, upsert: true } // Create the document if it doesn't exist
+        );
       }
 
       res.status(201).json({

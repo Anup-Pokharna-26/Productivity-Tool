@@ -45,19 +45,29 @@ const getTasks = async (req, res) => {
 // [POST] /api/tasks/create
 const createTask = async (req, res) => {
   try {
-    const { userId, title, description, status, category, taskDate } = req.body;
+    const { userId, title, description, status, category, taskDate, createdBy } = req.body;
 
     if (!userId || !title || !description || !taskDate) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
-    const strippedTaskDate = new Date(new Date(taskDate).toISOString().split("T")[0]);
-    const task = new Task({ userId, title, description, status, category, taskDate: strippedTaskDate });
+    const task = new Task({
+      userId,
+      title,
+      description,
+      status,
+      category,
+      taskDate, // Use taskDate directly
+      createdBy: createdBy || userId,
+    });
     await task.save();
 
     const day = await Day.findOneAndUpdate(
-      { date: strippedTaskDate, userId },
-      { $addToSet: { tasks: task._id } },
+      { date: taskDate, userId }, // Use taskDate directly
+      {
+        $addToSet: { tasks: task._id },
+        $setOnInsert: { statusOfDay: "not productive" },
+      },
       { new: true, upsert: true }
     );
 

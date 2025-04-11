@@ -23,19 +23,16 @@ const taskSchema = new mongoose.Schema(
     category: {
       type: String,
       trim: true,
-      trim: true, 
     },
     subCategory: {
       type: String,
       trim: true, // For storing AI plan title or null for user-added tasks
       default: null,
-
     },
     taskDate: {
-      type: Date,
+      type: String, // Store date as a string in YYYY-MM-DD format
       required: true,
     },
-
     createdBy: {
       type: String,
       required: true,
@@ -45,7 +42,6 @@ const taskSchema = new mongoose.Schema(
     timestamps: true,
     toJSON: {
       transform: (doc, ret) => {
-        ret.taskDate = ret.taskDate.toISOString().split("T")[0];
         ret.createdAt = ret.createdAt.toISOString().split("T")[0];
         ret.updatedAt = ret.updatedAt.toISOString().split("T")[0];
         return ret;
@@ -54,10 +50,6 @@ const taskSchema = new mongoose.Schema(
   }
 );
 
-// Strip time from taskDate before saving
-taskSchema.pre("save", function (next) {
-  this.taskDate = new Date(this.taskDate.toISOString().split("T")[0]);
-  next();
-});
+// Remove unnecessary pre-save middleware
 
 module.exports = mongoose.models.Task || mongoose.model("Task", taskSchema);
