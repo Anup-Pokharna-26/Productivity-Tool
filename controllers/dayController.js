@@ -92,16 +92,18 @@ const getLineChartProductivityStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
-    const formattedStartDate = new Date(new Date(startDate).toISOString().split("T")[0]); // Standardize date format
-    const formattedEndDate = new Date(new Date(endDate).toISOString().split("T")[0]); // Standardize date format
+    // Standardize date formats
+    const formattedStartDate = new Date(new Date(startDate).toISOString().split("T")[0]);
+    const formattedEndDate = new Date(new Date(endDate).toISOString().split("T")[0]);
 
+    // Query the Day model for matching documents
     const data = await Day.find({
       userId,
       date: { $gte: formattedStartDate, $lte: formattedEndDate },
     });
 
     // Generate the date range
-    const dateRange = generateDateRange(startDate, endDate);
+    const dateRange = generateDateRange(formattedStartDate, formattedEndDate);
 
     // Map the data to the required format and fill missing dates
     const result = dateRange.map((date) => {
@@ -113,7 +115,7 @@ const getLineChartProductivityStatus = async (req, res) => {
         day: date.toLocaleString("en-US", { weekday: "long" }),
         status: dayData
           ? dayData.statusOfDay.charAt(0).toUpperCase() + dayData.statusOfDay.slice(1)
-          : "Unknown",
+          : "No Data",
       };
     });
 
@@ -133,14 +135,19 @@ const getPieChartProductivityStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
+    // Standardize date formats
+    const formattedStartDate = new Date(new Date(startDate).toISOString().split("T")[0]);
+    const formattedEndDate = new Date(new Date(endDate).toISOString().split("T")[0]);
+
+    // Query the Day model for matching documents
     const data = await Day.find({
       userId,
-      date: { $gte: startDate, $lte: endDate },
+      date: { $gte: formattedStartDate, $lte: formattedEndDate },
       statusOfDay,
     });
 
     // Generate the date range
-    const dateRange = generateDateRange(startDate, endDate);
+    const dateRange = generateDateRange(formattedStartDate, formattedEndDate);
 
     // Group data by day of the week and count occurrences
     const dayCounts = data.reduce((acc, day) => {
