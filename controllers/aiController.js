@@ -185,7 +185,7 @@ const aiController = {
           { date, userId }, // Use date directly
           {
             $addToSet: { tasks: { $each: taskIds } }, // Add all task IDs to the tasks array
-            $setOnInsert: { statusOfDay: "not productive" }, // Default status if the day is newly created
+            $setOnInsert: { statusOfDay: 0 }, // Default status set to Idle (0) if the day is newly created
           },
           { new: true, upsert: true } // Create the document if it doesn't exist
         );
