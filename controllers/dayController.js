@@ -8,7 +8,8 @@ const getDay = async (req, res) => {
       return res.status(400).json({ success: false, message: "date and userId are required" });
     }
 
-    const day = await Day.findOne({ date, userId }).populate("tasks"); // Use date directly
+    const formattedDate = new Date(new Date(date).toISOString().split("T")[0]); // Standardize date format
+    const day = await Day.findOne({ date: formattedDate, userId }).populate("tasks");
 
     if (!day) {
       return res.status(404).json({ success: false, message: "Day not found" });
@@ -91,9 +92,12 @@ const getLineChartProductivityStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
+    const formattedStartDate = new Date(new Date(startDate).toISOString().split("T")[0]); // Standardize date format
+    const formattedEndDate = new Date(new Date(endDate).toISOString().split("T")[0]); // Standardize date format
+
     const data = await Day.find({
       userId,
-      date: { $gte: startDate, $lte: endDate },
+      date: { $gte: formattedStartDate, $lte: formattedEndDate },
     });
 
     // Generate the date range

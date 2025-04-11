@@ -10,8 +10,8 @@ const getTasks = async (req, res) => {
       return res.status(400).json({ success: false, message: "userId and date are required" });
     }
 
-    const strippedDate = new Date(new Date(date).toISOString().split("T")[0]);
-    const tasks = await Task.find({ userId, taskDate: strippedDate });
+    const formattedDate = new Date(new Date(date).toISOString().split("T")[0]); // Standardize date format
+    const tasks = await Task.find({ userId, taskDate: formattedDate });
 
     const completedStatuses = ["done"];
     const pendingStatuses = ["pending", "notDone", "toDo"];
@@ -51,19 +51,20 @@ const createTask = async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
+    const formattedTaskDate = new Date(new Date(taskDate).toISOString().split("T")[0]); // Standardize date format
     const task = new Task({
       userId,
       title,
       description,
       status,
       category,
-      taskDate, // Use taskDate directly
+      taskDate: formattedTaskDate, // Use standardized date format
       createdBy: createdBy || userId,
     });
     await task.save();
 
     const day = await Day.findOneAndUpdate(
-      { date: taskDate, userId }, // Use taskDate directly
+      { date: formattedTaskDate, userId }, // Use standardized date format
       {
         $addToSet: { tasks: task._id },
         $setOnInsert: { statusOfDay: "not productive" },
