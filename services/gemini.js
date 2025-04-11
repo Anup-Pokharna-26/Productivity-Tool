@@ -39,6 +39,15 @@ async function generateAiResponse({ skill, months, hours, startDate, skillLevel 
 
     // Parse the cleaned JSON string
     const parsedResponse = JSON.parse(cleanJson);
+
+    // Format the dates in the "plan" array to YYYY-MM-DD
+    if (parsedResponse.plan && Array.isArray(parsedResponse.plan)) {
+      parsedResponse.plan = parsedResponse.plan.map((entry) => ({
+        ...entry,
+        date: new Date(entry.date).toISOString().split("T")[0], // Format date to YYYY-MM-DD
+      }));
+    }
+
     return parsedResponse;
   } catch (error) {
     console.error("Error generating AI response:", error);

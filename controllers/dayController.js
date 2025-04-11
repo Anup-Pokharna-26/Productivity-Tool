@@ -8,11 +8,8 @@ const getDay = async (req, res) => {
       return res.status(400).json({ success: false, message: "date and userId are required" });
     }
 
-    // Strip time from the date
-    const strippedDate = new Date(new Date(date).toISOString().split("T")[0]);
-
-    // Find the day and populate the tasks
-    const day = await Day.findOne({ date: strippedDate, userId }).populate("tasks");
+    const formattedDate = new Date(new Date(date).toISOString().split("T")[0]); // Standardize date format
+    const day = await Day.findOne({ date: formattedDate, userId }).populate("tasks");
 
     if (!day) {
       return res.status(404).json({ success: false, message: "Day not found" });
@@ -34,11 +31,8 @@ const updateDayStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
-    // Strip time from the date
-    const strippedDate = new Date(new Date(date).toISOString().split("T")[0]);
-
     const updatedDay = await Day.findOneAndUpdate(
-      { date: strippedDate, userId },
+      { date, userId },
       { $set: { statusOfDay } },
       { new: true }
     );
@@ -98,17 +92,18 @@ const getLineChartProductivityStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
-    // Strip time from the start and end dates
-    const strippedStartDate = new Date(new Date(startDate).toISOString().split("T")[0]);
-    const strippedEndDate = new Date(new Date(endDate).toISOString().split("T")[0]);
+    // Standardize date formats
+    const formattedStartDate = new Date(new Date(startDate).toISOString().split("T")[0]);
+    const formattedEndDate = new Date(new Date(endDate).toISOString().split("T")[0]);
 
+    // Query the Day model for matching documents
     const data = await Day.find({
       userId,
-      date: { $gte: strippedStartDate, $lte: strippedEndDate },
+      date: { $gte: formattedStartDate, $lte: formattedEndDate },
     });
 
     // Generate the date range
-    const dateRange = generateDateRange(strippedStartDate, strippedEndDate);
+    const dateRange = generateDateRange(formattedStartDate, formattedEndDate);
 
     // Map the data to the required format and fill missing dates
     const result = dateRange.map((date) => {
@@ -120,7 +115,7 @@ const getLineChartProductivityStatus = async (req, res) => {
         day: date.toLocaleString("en-US", { weekday: "long" }),
         status: dayData
           ? dayData.statusOfDay.charAt(0).toUpperCase() + dayData.statusOfDay.slice(1)
-          : "Unknown",
+          : "No Data",
       };
     });
 
@@ -140,19 +135,19 @@ const getPieChartProductivityStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
-    // Strip time from the start and end dates
-    const strippedStartDate = new Date(new Date(startDate).toISOString().split("T")[0]);
-    const strippedEndDate = new Date(new Date(endDate).toISOString().split("T")[0]);
+    // Standardize date formats
+    const formattedStartDate = new Date(new Date(startDate).toISOString().split("T")[0]);
+    const formattedEndDate = new Date(new Date(endDate).toISOString().split("T")[0]);
 
-    // Query the Day model for the specified date range, userId, and statusOfDay
+    // Query the Day model for matching documents
     const data = await Day.find({
       userId,
-      date: { $gte: strippedStartDate, $lte: strippedEndDate },
+      date: { $gte: formattedStartDate, $lte: formattedEndDate },
       statusOfDay,
     });
 
     // Generate the date range
-    const dateRange = generateDateRange(strippedStartDate, strippedEndDate);
+    const dateRange = generateDateRange(formattedStartDate, formattedEndDate);
 
     // Group data by day of the week and count occurrences
     const dayCounts = data.reduce((acc, day) => {
