@@ -25,22 +25,31 @@ const getDay = async (req, res) => {
 // [PUT] /api/day
 const updateDayStatus = async (req, res) => {
   try {
-    const { date, userId, statusOfDay } = req.body; // Accept date, userId, and statusOfDay in the request body
+    const { date, userId, statusOfDay } = req.body;
 
     if (!date || !userId || !statusOfDay) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
+    console.log(`Updating day status for userId: ${userId}, date: ${date}, statusOfDay: ${statusOfDay}`);
+
+    // Standardize the date format to yyyy-mm-dd
+    const formattedDate = new Date(date).toISOString().split("T")[0];
+    console.log(`Formatted date: ${formattedDate}`);
+
+    // Update the day document
     const updatedDay = await Day.findOneAndUpdate(
-      { date, userId },
+      { date: formattedDate, userId },
       { $set: { statusOfDay } },
       { new: true }
     );
 
     if (!updatedDay) {
+      console.error(`Day not found for userId: ${userId}, date: ${formattedDate}`);
       return res.status(404).json({ success: false, message: "Day not found" });
     }
 
+    console.log(`Day status updated successfully: ${JSON.stringify(updatedDay)}`);
     res.status(200).json({ success: true, result: updatedDay });
   } catch (error) {
     console.error("Error updating day status:", error.message);

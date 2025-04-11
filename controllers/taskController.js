@@ -125,6 +125,32 @@ const updateTask = async (req, res) => {
 
     console.log(`Task with ID ${taskId} updated successfully`);
 
+    // Fetch all tasks for the same day and user
+    const tasks = await Task.find({ userId: task.userId, taskDate: task.taskDate });
+
+    // Calculate the new statusOfDay based on task statuses
+    let statusOfDay = 0; // Default to "Idle"
+    if (tasks.length === 0) {
+      statusOfDay = 0; // Idle
+    } else if (tasks.every(task => task.status === "done")) {
+      statusOfDay = 4; // Peak
+    } else if (tasks.some(task => task.status === "inProgress")) {
+      statusOfDay = 3; // Efficient
+    } else if (tasks.some(task => task.status === "pending")) {
+      statusOfDay = 2; // Moderate
+    } else {
+      statusOfDay = 1; // Improving
+    }
+
+    // Update the Day model with the new statusOfDay
+    const updatedDay = await Day.findOneAndUpdate(
+      { date: task.taskDate, userId: task.userId },
+      { $set: { statusOfDay } },
+      { new: true }
+    );
+
+    console.log(`Day status updated successfully: ${JSON.stringify(updatedDay)}`);
+
     res.status(200).json({ success: true, result: updatedTask });
   } catch (error) {
     console.error("Error updating task:", error.message);

@@ -11,10 +11,9 @@ const daySchema = new mongoose.Schema(
       required: true,
     },
     statusOfDay: {
-      type: String,
-      lowercase: true,
+      type: Number,
       trim: true,
-      enum: ["productive", "not productive"],
+      enum: ["Idel", "Improving", "Moderate", "Efficient", "Peak"],
     },
     tasks: [
       {
