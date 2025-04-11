@@ -127,7 +127,7 @@ const aiController = {
       }
 
       // Validate that aiResponse.plan is an array
-      const roadmap = data.aiResponse?.plan;
+      const roadmap = data.aiResponse;
       if (!Array.isArray(roadmap)) {
         return res.status(400).json({
           message: "Invalid AI response format",
