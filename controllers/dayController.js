@@ -66,12 +66,18 @@ const getStreak = async (req, res) => {
       return res.status(400).json({ success: false, message: "userId is required" });
     }
 
-    const streak = await Day.aggregate([
-      { $match: { userId, statusOfDay: "productive" } },
-      { $group: { _id: "$userId", streak: { $sum: 1 } } },
-    ]);
+    // const streak = await Day.aggregate([
+    //   { $match: { userId} },
+    //   { $group: { _id: "$userId", streak: { $sum: 1 } } },
+    // ]);
+    const fmtDate = new Date().toISOString().split("T")[0]
+    const today = await Day.find(
+      {userId, date:fmtDate}
+    );
 
-    res.status(200).json({ success: true, result: streak });
+    const streak = today[0].streak
+
+    res.status(200).json({ success: true, result: {streak} });
   } catch (error) {
     console.error("Error fetching streak:", error.message);
     res.status(500).json({ success: false, error: error.message });
