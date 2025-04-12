@@ -112,12 +112,37 @@ const getLineChartProductivityStatus = async (req, res) => {
       date: { $gte: startDate, $lte: endDate },
     }).sort({ date: 1 });
 
-    // Map the results to the required format
-    const result = days.map((day) => ({
-      date: day.date,
-      day: new Date(day.date).toLocaleDateString("en-US", { weekday: "long" }),
-      status: day.statusOfDay, // Return the numeric status directly
-    }));
+    // Generate a complete date range
+    const dateRange = [];
+    let currentDate = new Date(startDate);
+    const end = new Date(endDate);
+
+    while (currentDate <= end) {
+      dateRange.push(new Date(currentDate).toISOString().split("T")[0]);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Map the results to a dictionary for quick lookup
+    const dayMap = days.reduce((acc, day) => {
+      acc[day.date] = {
+        date: day.date,
+        day: new Date(day.date).toLocaleDateString("en-US", { weekday: "long" }),
+        status: day.statusOfDay,
+      };
+      return acc;
+    }, {});
+
+    // Create the final result array, filling missing dates with default status 0
+    const result = dateRange.map((date) => {
+      if (dayMap[date]) {
+        return dayMap[date];
+      }
+      return {
+        date,
+        day: new Date(date).toLocaleDateString("en-US", { weekday: "long" }),
+        status: 0, // Default status for missing dates
+      };
+    });
 
     res.status(200).json({
       success: true,
