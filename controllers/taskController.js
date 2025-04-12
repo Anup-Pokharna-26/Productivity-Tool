@@ -82,9 +82,9 @@ const createTask = async (req, res) => {
       { date: formattedTaskDate, userId }, // Use standardized date format
       {
         $addToSet: { tasks: savedTask._id },
-        $setOnInsert: { statusOfDay: "not productive" },
+        $setOnInsert: { statusOfDay: 0 }, // Default status set to Idle (0) if the day is newly created
       },
-      { new: true, upsert: true }
+      { new: true, upsert: true } // Create the document if it doesn't exist
     );
 
     res.status(201).json({ success: true, task: savedTask, day });

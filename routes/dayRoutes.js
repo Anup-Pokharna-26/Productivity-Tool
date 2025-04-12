@@ -9,11 +9,18 @@ const {
 
 const router = express.Router();
 
-// Define routes
-router.get("/", getDay); // GET /api/day
-router.put("/", updateDayStatus); // PUT /api/day
-router.get("/streak", getStreak); // GET /api/day/streak
-router.get("/productivity/status/line-chart", getLineChartProductivityStatus); // GET /api/productivity/status/line-chart
-router.get("/productivity/status/pie-chart", getPieChartProductivityStatus); // GET /api/productivity/status/pie-chart
+// [GET] /api/day
+router.get("/", getDay);
+// [PUT] /api/day
+router.put("/", updateDayStatus);
+
+// [GET] /api/day/streak
+router.get("/streak", getStreak);
+
+// [GET] /api/productivity/status/line-chart
+router.get("/productivity/status/line-chart", getLineChartProductivityStatus);
+
+// [GET] /api/productivity/status/pie-chart
+router.get("/productivity/status/pie-chart", getPieChartProductivityStatus);
 
 module.exports = router;
