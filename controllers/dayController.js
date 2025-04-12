@@ -95,7 +95,7 @@ const generateDateRange = (startDate, endDate) => {
 // [GET] /api/productivity/status/line-chart
 const getLineChartProductivityStatus = async (req, res) => {
   try {
-    const { userId, startDate, endDate } = req.query;
+    let { userId, startDate, endDate } = req.query;
 
     if (!userId || !startDate || !endDate) {
       return res.status(400).json({
@@ -106,6 +106,8 @@ const getLineChartProductivityStatus = async (req, res) => {
 
     console.log(`Fetching productivity status for userId: ${userId}, from ${startDate} to ${endDate}`);
 
+    startDate = new Date(startDate).toISOString().split("T")[0]
+    endDate = new Date(endDate).toISOString().split("T")[0]
     // Fetch days within the specified date range
     const days = await Day.find({
       userId,
@@ -131,6 +133,8 @@ const getLineChartProductivityStatus = async (req, res) => {
       };
       return acc;
     }, {});
+
+    console.log(`Days found: ${JSON.stringify(dayMap)}`);
 
     // Create the final result array, filling missing dates with default status 0
     const result = dateRange.map((date) => {
