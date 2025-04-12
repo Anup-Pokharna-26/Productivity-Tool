@@ -1,5 +1,6 @@
 const Task = require("../models/schema/task.model.js");
 const Day = require("../models/schema/day.model.js");
+const mongoose = require("mongoose"); // Import mongoose for ObjectId validation
 
 // [GET] /api/tasks
 const getTasks = async (req, res) => {
@@ -10,8 +11,16 @@ const getTasks = async (req, res) => {
       return res.status(400).json({ success: false, message: "userId and date are required" });
     }
 
-    const formattedDate = new Date(new Date(date).toISOString().split("T")[0]); // Standardize date format
+    // Log the incoming query parameters
+    console.log(`Fetching tasks for userId: ${userId}, date: ${date}`);
+
+    // Standardize the date format to yyyy-mm-dd
+    const formattedDate = new Date(date).toISOString().split("T")[0];
+    console.log(`Formatted date: ${formattedDate}`);
+
+    // Fetch tasks matching the userId and taskDate
     const tasks = await Task.find({ userId, taskDate: formattedDate });
+    console.log(`Tasks found: ${JSON.stringify(tasks)}`);
 
     const completedStatuses = ["done"];
     const pendingStatuses = ["pending", "notDone", "toDo"];
@@ -20,13 +29,13 @@ const getTasks = async (req, res) => {
     let statusOfDay = 0;
 
     if (tasks.length === 0) {
-      statusOfDay = 0;
+      statusOfDay = 0; // No tasks
     } else if (tasks.every(task => completedStatuses.includes(task.status))) {
-      statusOfDay = 2;
+      statusOfDay = 2; // All tasks completed
     } else if (tasks.every(task => pendingStatuses.includes(task.status))) {
-      statusOfDay = 3;
+      statusOfDay = 3; // All tasks pending
     } else {
-      statusOfDay = 1;
+      statusOfDay = 1; // Tasks in progress or mixed statuses
     }
 
     res.status(200).json({
@@ -47,11 +56,16 @@ const createTask = async (req, res) => {
   try {
     const { userId, title, description, status, category, taskDate, createdBy } = req.body;
 
+    console.log("Incoming request body for createTask:", req.body);
+
     if (!userId || !title || !description || !taskDate) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
-    const formattedTaskDate = new Date(new Date(taskDate).toISOString().split("T")[0]); // Standardize date format
+     // Standardize the date format to yyyy-mm-dd
+    const formattedTaskDate = new Date(taskDate).toISOString().split("T")[0];
+
+    // Create the task
     const task = new Task({
       userId,
       title,
@@ -61,18 +75,19 @@ const createTask = async (req, res) => {
       taskDate: formattedTaskDate, // Use standardized date format
       createdBy: createdBy || userId,
     });
-    await task.save();
+    const savedTask = await task.save();
 
+    // Update or create the corresponding Day document
     const day = await Day.findOneAndUpdate(
       { date: formattedTaskDate, userId }, // Use standardized date format
       {
-        $addToSet: { tasks: task._id },
-        $setOnInsert: { statusOfDay: "not productive" },
+        $addToSet: { tasks: savedTask._id },
+        $setOnInsert: { statusOfDay: 0 }, // Default status set to Idle (0) if the day is newly created
       },
-      { new: true, upsert: true }
+      { new: true, upsert: true } // Create the document if it doesn't exist
     );
 
-    res.status(201).json({ success: true, task, day });
+    res.status(201).json({ success: true, task: savedTask, day });
   } catch (error) {
     console.error("Error creating task:", error.message);
     res.status(500).json({ success: false, error: error.message });
@@ -88,11 +103,53 @@ const updateTask = async (req, res) => {
       return res.status(400).json({ success: false, message: "taskId is required" });
     }
 
-    const updatedTask = await Task.findByIdAndUpdate(taskId, { $set: updateData }, { new: true });
+    // Validate taskId format
+    if (!mongoose.Types.ObjectId.isValid(taskId)) {
+      console.error(`Invalid taskId format: ${taskId}`);
+      return res.status(400).json({ success: false, message: "Invalid taskId format" });
+    }
 
-    if (!updatedTask) {
+    console.log(`Attempting to update task with ID: ${taskId}`);
+
+    // Check if the task exists
+    const task = await Task.findById(taskId);
+    if (!task) {
+      console.error(`Task with ID ${taskId} not found`);
       return res.status(404).json({ success: false, message: "Task not found" });
     }
+
+    console.log(`Task found: ${JSON.stringify(task)}`);
+
+    // Update the task
+    const updatedTask = await Task.findByIdAndUpdate(taskId, { $set: updateData }, { new: true });
+
+    console.log(`Task with ID ${taskId} updated successfully`);
+
+    // Fetch all tasks for the same day and user
+    const tasks = await Task.find({ userId: task.userId, taskDate: task.taskDate });
+
+    // Calculate the new statusOfDay based on task statuses
+    let statusOfDay = 0; // Default to "Idle"
+    if (tasks.length === 0) {
+      statusOfDay = 0; // Idle
+    } else if (tasks.every(task => task.status === "done")) {
+      statusOfDay = 4; // Peak
+    } else if (tasks.some(task => task.status === "inProgress")) {
+      statusOfDay = 3; // Efficient
+    } else if (tasks.some(task => task.status === "pending")) {
+      statusOfDay = 2; // Moderate
+    } else {
+      statusOfDay = 1; // Improving
+    }
+
+    // Update the Day model with the new statusOfDay
+    const updatedDay = await Day.findOneAndUpdate(
+      { date: task.taskDate, userId: task.userId },
+      { $set: { statusOfDay } },
+      { new: true }
+    );
+
+    console.log(`Day status updated successfully: ${JSON.stringify(updatedDay)}`);
 
     res.status(200).json({ success: true, result: updatedTask });
   } catch (error) {
@@ -110,13 +167,40 @@ const deleteTask = async (req, res) => {
       return res.status(400).json({ success: false, message: "taskId is required" });
     }
 
-    const deletedTask = await Task.findByIdAndDelete(taskId);
+    console.log(`Attempting to delete task with ID: ${taskId}`);
 
-    if (!deletedTask) {
+    // Find the task to get its date and userId
+    const task = await Task.findById(taskId);
+    if (!task) {
+      console.error(`Task with ID ${taskId} not found`);
       return res.status(404).json({ success: false, message: "Task not found" });
     }
 
-    res.status(200).json({ success: true, message: "Task deleted successfully", result: deletedTask });
+    const { taskDate, userId } = task;
+
+    // Delete the task
+    await Task.findByIdAndDelete(taskId);
+    console.log(`Task with ID ${taskId} deleted successfully`);
+
+    // Remove the task reference from the Day model
+    const updatedDay = await Day.findOneAndUpdate(
+      { date: taskDate, userId },
+      { $pull: { tasks: taskId } },
+      { new: true }
+    );
+
+    if (updatedDay) {
+      console.log(`Task reference removed from Day document for date: ${taskDate}`);
+      // Optionally, delete the Day document if it has no tasks left
+      if (updatedDay.tasks.length === 0) {
+        await Day.findByIdAndDelete(updatedDay._id);
+        console.log(`Day document for date: ${taskDate} deleted as it has no tasks left`);
+      }
+    } else {
+      console.warn(`No Day document found for date: ${taskDate} and userId: ${userId}`);
+    }
+
+    res.status(200).json({ success: true, message: "Task deleted successfully" });
   } catch (error) {
     console.error("Error deleting task:", error.message);
     res.status(500).json({ success: false, error: error.message });

@@ -25,22 +25,31 @@ const getDay = async (req, res) => {
 // [PUT] /api/day
 const updateDayStatus = async (req, res) => {
   try {
-    const { date, userId, statusOfDay } = req.body; // Accept date, userId, and statusOfDay in the request body
+    const { date, userId, statusOfDay } = req.body;
 
     if (!date || !userId || !statusOfDay) {
       return res.status(400).json({ success: false, message: "Missing required fields" });
     }
 
+    console.log(`Updating day status for userId: ${userId}, date: ${date}, statusOfDay: ${statusOfDay}`);
+
+    // Standardize the date format to yyyy-mm-dd
+    const formattedDate = new Date(date).toISOString().split("T")[0];
+    console.log(`Formatted date: ${formattedDate}`);
+
+    // Update the day document
     const updatedDay = await Day.findOneAndUpdate(
-      { date, userId },
+      { date: formattedDate, userId },
       { $set: { statusOfDay } },
       { new: true }
     );
 
     if (!updatedDay) {
+      console.error(`Day not found for userId: ${userId}, date: ${formattedDate}`);
       return res.status(404).json({ success: false, message: "Day not found" });
     }
 
+    console.log(`Day status updated successfully: ${JSON.stringify(updatedDay)}`);
     res.status(200).json({ success: true, result: updatedDay });
   } catch (error) {
     console.error("Error updating day status:", error.message);
@@ -86,43 +95,65 @@ const generateDateRange = (startDate, endDate) => {
 // [GET] /api/productivity/status/line-chart
 const getLineChartProductivityStatus = async (req, res) => {
   try {
-    const { startDate, endDate, userId } = req.query;
+    const { userId, startDate, endDate } = req.query;
 
-    if (!startDate || !endDate || !userId) {
-      return res.status(400).json({ success: false, message: "Missing required fields" });
+    if (!userId || !startDate || !endDate) {
+      return res.status(400).json({
+        success: false,
+        message: "userId, startDate, and endDate are required",
+      });
     }
 
-    // Standardize date formats
-    const formattedStartDate = new Date(new Date(startDate).toISOString().split("T")[0]);
-    const formattedEndDate = new Date(new Date(endDate).toISOString().split("T")[0]);
+    console.log(`Fetching productivity status for userId: ${userId}, from ${startDate} to ${endDate}`);
 
-    // Query the Day model for matching documents
-    const data = await Day.find({
+    // Fetch days within the specified date range
+    const days = await Day.find({
       userId,
-      date: { $gte: formattedStartDate, $lte: formattedEndDate },
-    });
+      date: { $gte: startDate, $lte: endDate },
+    }).sort({ date: 1 });
 
-    // Generate the date range
-    const dateRange = generateDateRange(formattedStartDate, formattedEndDate);
+    // Generate a complete date range
+    const dateRange = [];
+    let currentDate = new Date(startDate);
+    const end = new Date(endDate);
 
-    // Map the data to the required format and fill missing dates
+    while (currentDate <= end) {
+      dateRange.push(new Date(currentDate).toISOString().split("T")[0]);
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    // Map the results to a dictionary for quick lookup
+    const dayMap = days.reduce((acc, day) => {
+      acc[day.date] = {
+        date: day.date,
+        day: new Date(day.date).toLocaleDateString("en-US", { weekday: "long" }),
+        status: day.statusOfDay,
+      };
+      return acc;
+    }, {});
+
+    // Create the final result array, filling missing dates with default status 0
     const result = dateRange.map((date) => {
-      const formattedDate = date.toISOString().split("T")[0];
-      const dayData = data.find((day) => day.date.toISOString().split("T")[0] === formattedDate);
-
+      if (dayMap[date]) {
+        return dayMap[date];
+      }
       return {
-        date: formattedDate,
-        day: date.toLocaleString("en-US", { weekday: "long" }),
-        status: dayData
-          ? dayData.statusOfDay.charAt(0).toUpperCase() + dayData.statusOfDay.slice(1)
-          : "No Data",
+        date,
+        day: new Date(date).toLocaleDateString("en-US", { weekday: "long" }),
+        status: 0, // Default status for missing dates
       };
     });
 
-    res.status(200).json({ success: true, result });
+    res.status(200).json({
+      success: true,
+      result,
+    });
   } catch (error) {
-    console.error("Error fetching line chart data:", error.message);
-    res.status(500).json({ success: false, error: error.message });
+    console.error("Error fetching line chart productivity status:", error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+    });
   }
 };
 
